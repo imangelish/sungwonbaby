@@ -452,6 +452,77 @@ footer{
 
 footer .heart{color:var(--gold);}
 
+/* ── TOOLBAR & EASTER EGG UI ── */
+.toolbar{
+  position:relative;z-index:10;
+  display:flex;flex-wrap:wrap;gap:8px;
+  justify-content:center;align-items:center;
+  padding:0 20px 20px;
+}
+.tool-btn{
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--gold-light);
+  font-size:11px;
+  padding:7px 12px;
+  border-radius:20px;
+  cursor:pointer;
+  transition:all .15s;
+  font-family:inherit;
+}
+.tool-btn:hover{background:rgba(200,169,110,0.15);border-color:var(--gold);}
+.mascot{
+  font-size:20px;
+  margin-left:4px;
+  display:inline-block;
+  transition:transform .3s;
+}
+.fact-popup{
+  max-width:600px;
+  margin:0 auto 16px;
+  padding:0 20px;
+  text-align:center;
+  font-size:13px;
+  color:var(--gold-light);
+  min-height:0;
+  opacity:0;
+  transition:opacity .3s;
+}
+.fact-popup.show{opacity:1;}
+
+.secret-panel{
+  display:none;
+  background:var(--surface);
+  border:1px solid var(--gold);
+  border-radius:20px;
+  padding:20px;
+  margin-top:24px;
+  backdrop-filter:blur(10px);
+  animation:fadeIn .5s ease;
+}
+.secret-panel.open{display:block;}
+.secret-panel-title{
+  font-size:12px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:12px;text-align:center;
+}
+.secret-panel ul{list-style:none;}
+.secret-panel li{
+  font-size:13px;line-height:1.8;color:var(--white);
+  padding:6px 0;border-bottom:1px solid var(--border);
+}
+.secret-panel li:last-child{border-bottom:none;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+.quiet-caption{
+  text-align:center;font-size:11px;color:var(--gold);opacity:0;
+  padding:20px 0 0;transition:opacity 1.2s ease;letter-spacing:0.3px;
+}
+.quiet-caption.show{opacity:0.5;}
+
+body.quiet-mode *{animation-duration:6s !important;transition-duration:.6s !important;}
+body.quiet-mode .mascot{transform:scale(0.9);}
+
+
 @media(max-width:600px){
   .stats-row{flex-direction:row;}
   .stat-card{padding:10px 12px;}
@@ -463,10 +534,21 @@ footer .heart{color:var(--gold);}
 
 <header>
   <span class="plane-icon">✈️</span>
-  <h1 class="site-title">성원 오빠의 면접 AI</h1>
-  <p class="site-sub">Airport & Aviation Interview Prep · 공항 면접 준비</p>
+  <h1 class="site-title" data-kr="성원 오빠의 면접 AI" data-en="Sungwon's Interview AI">성원 오빠의 면접 AI</h1>
+  <p class="site-sub" data-kr="공항 면접 준비" data-en="Airport & Aviation Interview Prep">Airport & Aviation Interview Prep · 공항 면접 준비</p>
   <span class="secret-badge">🎁 성원 오빠 바보 — for dura, by dura 💛</span>
 </header>
+
+<div class="toolbar">
+  <button class="tool-btn" id="langBtn" onclick="toggleLang()" title="한국어 / English">🇰🇷 KR</button>
+  <button class="tool-btn" id="modeBtn" onclick="toggleMode()" title="조용한 모드 / 활동 모드">🧘 Quiet</button>
+  <button class="tool-btn" onclick="showFact('cancer')" title="Cancer facts">♋ Cancer</button>
+  <button class="tool-btn" onclick="showFact('infj')" title="INFJ facts">🧩 INFJ</button>
+  <button class="tool-btn" onclick="showReminder()" title="오늘의 메시지">💌 Today</button>
+  <span class="mascot" id="mascot" title="mood mascot">✈️</span>
+</div>
+
+<div class="fact-popup" id="factPopup"></div>
 
 <div class="container">
 
@@ -474,15 +556,15 @@ footer .heart{color:var(--gold);}
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-num" id="q-count">0</div>
-      <div class="stat-label">질문 연습 / Questions practiced</div>
+      <div class="stat-label" data-kr="질문 연습" data-en="Questions practiced">질문 연습 / Questions practiced</div>
     </div>
     <div class="stat-card">
       <div class="stat-num" id="s-count">0</div>
-      <div class="stat-label">저장된 답변 / Saved answers</div>
+      <div class="stat-label" data-kr="저장된 답변" data-en="Saved answers">저장된 답변 / Saved answers</div>
     </div>
     <div class="stat-card">
       <div class="stat-num">70</div>
-      <div class="stat-label">목표 질문 / Target questions</div>
+      <div class="stat-label" data-kr="목표 질문" data-en="Target questions">목표 질문 / Target questions</div>
     </div>
   </div>
 
@@ -593,6 +675,15 @@ footer .heart{color:var(--gold);}
     </div>
   </div>
 
+  <!-- SECRET PANEL (unlocked by typing "dura" in chat) -->
+  <div class="secret-panel" id="secretPanel">
+    <div class="secret-panel-title">🔓 secret unlocked</div>
+    <ul id="secretList"></ul>
+  </div>
+
+  <div id="scrollSentinel"></div>
+  <p class="quiet-caption" id="quietCaption">고마워, 그냥 너라서 · thanks for being who you are</p>
+
 </div>
 
 <footer>
@@ -632,23 +723,57 @@ async function sendMessage() {
   if (!text) return;
 
   addMsg('user', text, null);
-  history.push({ role: 'user', content: text });
   input.value = '';
+
+  const egg = checkEasterEgg(text);
+  if (egg) {
+    setTimeout(() => addMsg('ai', egg.ko, egg.en), 400);
+    document.getElementById('mascot').textContent = '💛';
+    return;
+  }
+
+  history.push({ role: 'user', content: text });
   btn.disabled = true;
 
   const typingId = addTyping();
 
+  const SYSTEM = `당신은 한국 공항 면접 전문 코치입니다. 사용자가 면접 질문을 입력하면:
+
+1. 먼저 한국어로 완벽한 모범 답변을 제공하세요 (자연스럽고 진정성 있게, 공항/항공사 업무 맥락에 맞게)
+2. 답변 끝에 "---" 구분선을 넣으세요
+3. 그 아래에 영어 번역을 제공하세요 (label: "English translation:")
+
+답변 스타일:
+- 진정성 있고 개인적으로 들려야 함
+- 너무 형식적이지 않게, 자연스럽게
+- 구체적인 예시 포함
+- 150-250자 정도로 적절한 길이
+- 공항/항공/고객서비스 맥락 반영
+
+사용자 이름은 성원입니다. 가끔 응원 메시지도 넣어주세요.`;
+
   try {
-    const res = await fetch('/api/chat', {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history.slice(-8) })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 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'
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-20b',
+        messages: [
+          { role: 'system', content: SYSTEM },
+          ...history.slice(-8)
+        ],
+        temperature: 0.7,
+        max_tokens: 600
+      })
     });
 
     if (!res.ok) throw new Error('API error: ' + res.status);
 
     const data = await res.json();
-    const reply = data.content.map(block => block.text || '').join('');
+    const reply = data.choices[0].message.content;
 
     removeTyping(typingId);
 
@@ -798,6 +923,179 @@ window.addEventListener('load', () => {
     });
   }
 });
+
+/* ══════════════════════════════════════
+   EASTER EGGS & EXTRA FEATURES
+   ══════════════════════════════════════ */
+
+/* ── 11. KR/EN toggle for a few labels ── */
+let langEn = false;
+function toggleLang() {
+  langEn = !langEn;
+  document.getElementById('langBtn').textContent = langEn ? '🇬🇧 EN' : '🇰🇷 KR';
+  document.querySelectorAll('[data-kr][data-en]').forEach(el => {
+    el.textContent = langEn ? el.dataset.en : el.dataset.kr;
+  });
+}
+
+/* ── 14. Quiet / Active mode ── */
+let quiet = false;
+function toggleMode() {
+  quiet = !quiet;
+  document.body.classList.toggle('quiet-mode', quiet);
+  document.getElementById('modeBtn').textContent = quiet ? '⚡ Active' : '🧘 Quiet';
+}
+
+/* ── 17. Mascot mood, reacts to typing ── */
+const mascotMoods = [
+  { words: ['고마워','감사','thank'], face: '🥹' },
+  { words: ['슬프','힘들','sad','tired','피곤'], face: '🥺' },
+  { words: ['화이팅','좋아','good','great','신나'], face: '😊' },
+  { words: ['졸려','자고','sleep'], face: '😴' },
+  { words: ['사랑','love'], face: '🥰' }
+];
+document.getElementById('userInput')?.addEventListener('input', (e) => {
+  const val = e.target.value.toLowerCase();
+  const mascot = document.getElementById('mascot');
+  const hit = mascotMoods.find(m => m.words.some(w => val.includes(w)));
+  mascot.textContent = hit ? hit.face : '✈️';
+});
+
+/* ── 2 & 6. Fact widgets ── */
+const facts = {
+  cancer: [
+    '♋ 게자리는 물의 원소 — 감정이 깊고 직관적이에요.',
+    '♋ 게자리는 가장 충성스러운 별자리 중 하나예요.',
+    '♋ 게자리는 집(고향)에 대한 애착이 강해요 — 일-헬스장-집, 딱 그 느낌.',
+    '♋ 게자리는 겉은 단단해도 속은 여려요, 딱 게 껍질처럼.',
+    '♋ Cancers are ruled by the Moon — moods run deep, intuition runs deeper.'
+  ],
+  infj: [
+    '🧩 INFJ는 전체 인구의 약 1-2%밖에 없는 가장 희귀한 유형이에요.',
+    '🧩 INFJ는 "선지자" 유형 — 사람을 깊이 이해하지만 잘 드러내지 않아요.',
+    '🧩 두 INFJ가 만나면 말 없이도 서로를 이해하는 경우가 많대요.',
+    '🧩 INFJ는 조용히 있는 걸 좋아하지만, 마음속엔 누구보다 다정함이 커요.',
+    '🧩 INFJs often feel drawn to helping professions — quietly, without needing credit.'
+  ]
+};
+let factIndex = { cancer: 0, infj: 0 };
+function showFact(type) {
+  const popup = document.getElementById('factPopup');
+  const list = facts[type];
+  popup.textContent = list[factIndex[type] % list.length];
+  factIndex[type]++;
+  popup.classList.remove('show');
+  void popup.offsetWidth;
+  popup.classList.add('show');
+}
+
+/* ── 8. Reminder button ── */
+const reminders = [
+  '오늘 그에게 잘생겼다고 한 번 더 말해줘 💛',
+  '오늘은 그냥 "화이팅"이라고 한마디 보내줘.',
+  '그가 헬스장 다녀왔는지 물어봐줘 — 관심 표현은 늘 좋으니까.',
+  '오늘 하루 어땠는지 진심으로 물어봐줘.',
+  '가끔은 그냥 "네 얘기 들어줄게"라고 말해주는 것도 좋아.'
+];
+function showReminder() {
+  const popup = document.getElementById('factPopup');
+  const msg = reminders[Math.floor(Math.random() * reminders.length)];
+  popup.textContent = '💌 ' + msg;
+  popup.classList.remove('show');
+  void popup.offsetWidth;
+  popup.classList.add('show');
+}
+
+/* ── 30. Scroll-to-bottom quiet caption ── */
+const sentinel = document.getElementById('scrollSentinel');
+if (sentinel) {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        document.getElementById('quietCaption').classList.add('show');
+      }
+    });
+  }, { threshold: 0.5 });
+  observer.observe(sentinel);
+}
+
+/* ── 20. Secret panel (unlocked by typing "dura" in chat) ── */
+const secretReasons = [
+  '넌 진짜야 — 꾸며내지 않는 사람이라서.',
+  '넌 남을 판단하지 않고 그냥 들어줘.',
+  '넌 조용하지만, 그 조용함 안에 따뜻함이 있어.',
+  '넌 스스로를 잘 몰라줘도, 넌 충분히 멋진 사람이야.',
+  '너의 성실함 — 일, 헬스장, 집. 매일이 그 자체로 대단해.',
+  '넌 도움이 되는 사람이 되고 싶어 해 — 그 마음이 진짜 좋아.',
+  '우리는 참 다른데, 그래서 더 편해.',
+  '넌 그냥... 좋은 사람이야. 그게 다야.'
+];
+function unlockSecret() {
+  const panel = document.getElementById('secretPanel');
+  const list = document.getElementById('secretList');
+  if (panel.classList.contains('open')) return;
+  list.innerHTML = secretReasons.map(r => `<li>${r}</li>`).join('');
+  panel.classList.add('open');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ── 23. Long inactivity nudge ── */
+let inactivityTimer;
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    addMsg('ai', '조용히 있어도 괜찮아, 난 그냥 여기 있을게. 화이팅. ✈️',
+      "It's okay to be quiet, I'm just here. Fighting.");
+  }, 5 * 60 * 1000);
+}
+document.addEventListener('mousemove', resetInactivityTimer);
+document.addEventListener('keydown', resetInactivityTimer);
+resetInactivityTimer();
+
+/* ── Keyword easter eggs, intercepted before hitting the API ── */
+const eggTriggers = [
+  { test: t => /인천|incheon/i.test(t),
+    ko: '📍 1992년 7월 13일 11:37, 인천에서 태어났어 — 그날의 별자리, 기억나?',
+    en: 'Born July 13, 1992, 11:37 AM, Incheon — remember looking at that chart together?' },
+  { test: t => /헬스장|gym|가슴근육|운동/i.test(t) && !/그날|그때/.test(t),
+    ko: '일 → 헬스장 → 집. 오늘도 똑같은 루틴이었으려나 💪✈️',
+    en: 'Work → gym → home. Same routine today too, probably 💪' },
+  { test: t => /잘생겼|잘생김|handsome/i.test(t),
+    ko: '맞아, 진짜 잘생겼어. 본인만 모르지 😌',
+    en: "Yes, he really is handsome. He's just the only one who doesn't see it." },
+  { test: t => /심리학|psychology/i.test(t),
+    ko: '심리학 얘기해도 판단 안 하고 그냥 들어주는 사람, 흔치 않아.',
+    en: "Someone who just listens to psychology talk without judging — that's rare." },
+  { test: t => /클럽|club/i.test(t),
+    ko: '홍대의 어느 밤, 완전 랜덤하게 다가가서 인사했었지 😳 재밌는 시작이었어.',
+    en: 'One random night in Hongdae, a bold hello started it all 😳' },
+  { test: t => /^집$|퇴근|집에/i.test(t),
+    ko: '일-헬스장-집. 단순하지만 그게 그 사람다워.',
+    en: 'Work-gym-home. Simple, but very him.' },
+  { test: t => /도움이 되는|남을 돕|help people|helping/i.test(t),
+    ko: '남을 돕는 사람이 되고 싶다던 말, 진심으로 멋있었어.',
+    en: 'Wanting to be someone who helps others — that was genuinely admirable.' },
+  { test: t => /슬프|우울|sad/i.test(t),
+    ko: '진짜로 슬퍼 보이는 사람을 만나는 건 흔치 않아. 그게 오히려 진짜라서 좋아.',
+    en: 'Meeting someone who feels genuinely, quietly sad is rare — and that realness is what matters.' },
+  { test: t => /jamk|잼크|그날 밤/i.test(t),
+    ko: '😳',
+    en: null },
+  { test: t => /^dura$|^두라$/i.test(t),
+    ko: '🔓... 열렸다.',
+    en: null, action: unlockSecret }
+];
+
+function checkEasterEgg(text) {
+  for (const egg of eggTriggers) {
+    if (egg.test(text)) {
+      if (egg.action) egg.action();
+      return egg;
+    }
+  }
+  return null;
+}
+
 </script>
 </body>
 </html>
