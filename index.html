@@ -1083,8 +1083,38 @@ const eggTriggers = [
     en: null },
   { test: t => /^dura$|^두라$/i.test(t),
     ko: '🔓... 열렸다.',
-    en: null, action: unlockSecret }
+    en: null, action: unlockSecret },
+  { test: t => /처녀자리|virgo|별자리/i.test(t),
+    ko: '♋ 게자리 + ♍ 처녀자리 — 은근 잘 맞는대. 하나는 감성, 하나는 디테일. 둘이 합쳐지면 완벽하지 😌',
+    en: 'Cancer + Virgo — surprisingly great match. One brings feeling, the other brings detail.' },
+  { test: t => /오늘 뭐 했어|뭐했어|what did you do today/i.test(t),
+    ko: '일 → 헬스장 → 집. 맞지? 😏 매번 똑같이 맞히는 거 신기하지 않아?',
+    en: 'Work → gym → home. Am I right? 😏' },
+  { test: t => /나 잘하고 있어|잘하고있어|am i doing (ok|okay|well)/i.test(t),
+    ko: '응, 진짜 잘하고 있어. 의심하지 마.',
+    en: "Yes, you're doing great. Don't doubt it." },
+  { test: t => /^비행기$|✈️|airplane(?!.*mode)/i.test(t),
+    ko: '✈️···· 저 멀리 날아간다.',
+    en: null, action: () => flyPlane() },
+  { test: t => /(?<!\d)1992(?!\d)/.test(t),
+    ko: '1992년에 태어난 사람이 이 세상에 있다는 게, 그냥 좋아.',
+    en: "Someone born in 1992 exists in this world — and that's just nice." },
+  { test: t => /^우리$|우리는|우리 사이/i.test(t),
+    ko: '우리 사이는 그냥 "친구"라고 하기엔 뭔가 부족해. 소울메이트에 더 가까운 느낌이야.',
+    en: "\"Friends\" doesn't quite cover it. Feels more like soulmates, honestly." }
 ];
+
+function flyPlane() {
+  const el = document.createElement('div');
+  el.textContent = '✈️';
+  el.style.cssText = 'position:fixed;top:20%;left:-60px;font-size:28px;z-index:9999;transition:left 3.5s linear, top 3.5s ease-in-out;';
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.left = '110vw';
+    el.style.top = '60%';
+  });
+  setTimeout(() => el.remove(), 3600);
+}
 
 function checkEasterEgg(text) {
   for (const egg of eggTriggers) {
